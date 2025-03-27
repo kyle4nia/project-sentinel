@@ -21,3 +21,6 @@ app.use("/", voteRoutes);
 app.listen(port, () => {
   console.log(`✅ Server running at http://localhost:${port}`);
 });
+import runNightOps from './utils/nightOpsDaemon.js';
+runNightOps(); // Starts background loop
+
