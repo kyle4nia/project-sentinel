@@ -1,0 +1,9 @@
+{
+    "name": "project-sentinel",
+    "version": "1.0.0",
+    "main": "index.js",
+    "dependencies": {
+        "elliptic": "^6.5.4",
+        "express": "^4.21.2"
+    }
+}

@@ -1,19 +1,9 @@
+version: '3.8'
 services:
-  
-  ipfs-node:
-    image: ipfs/kubo:latest
-    ports:
-      - "5001:5001"
-      - "8080:8080"
-    volumes:
-      - ./ipfs-data:/data/ipfs
-
-  flux-sim:
-    image: node:18
-    working_dir: /app
-    volumes:
-      - ./flux-sim:/app
-    command: ["npm", "run", "dev"]
+  app:
+    build: .
     ports:
       - "3000:3000"
-
+    volumes:
+      - .:/usr/src/app
+      - /usr/src/app/node_modules
