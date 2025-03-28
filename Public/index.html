@@ -192,5 +192,44 @@
 
     loadAnchors();
   </script>
+  <script>
+    document.getElementById("profile-form").addEventListener("submit", function (e) {
+      const username = document.getElementById("username");
+      const bio = document.getElementById("bio");
+      const kaspa = document.getElementById("kaspa_address");
+      const verif = document.getElementById("verification_level");
+  
+      let valid = true;
+  
+      // Reset all borders
+      [username, bio, kaspa, verif].forEach((field) => field.style.border = "");
+  
+      if (!username.value.trim()) {
+        username.style.border = "2px solid red";
+        valid = false;
+      }
+  
+      if (!bio.value.trim()) {
+        bio.style.border = "2px solid red";
+        valid = false;
+      }
+  
+      if (!kaspa.value.startsWith("kaspa:")) {
+        kaspa.style.border = "2px solid red";
+        valid = false;
+      }
+  
+      const v = parseInt(verif.value);
+      if (isNaN(v) || v < 0 || v > 5) {
+        verif.style.border = "2px solid red";
+        valid = false;
+      }
+  
+      if (!valid) {
+        e.preventDefault();
+        alert("Please correct the highlighted fields.");
+      }
+    });
+  </script>  
 </body>
 </html>
