@@ -24,29 +24,7 @@ async function writeJSON(filePath, data) {
   }
 }
 
-// Anchors functions
-async function readAnchors(filePath) {
-  return readJSON(filePath);
-}
-
-async function writeAnchors(filePath, data) {
-  return writeJSON(filePath, data);
-}
-
-// Profiles functions
-async function readProfiles(filePath) {
-  return readJSON(filePath);
-}
-
-async function writeProfiles(filePath, data) {
-  return writeJSON(filePath, data);
-}
-
 module.exports = {
-  readAnchors,
-  writeAnchors,
-  readProfiles,
-  writeProfiles,
+  readJSON,
+  writeJSON
 };
-
-// ... (rest of the module remains unchanged)

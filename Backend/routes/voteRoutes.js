@@ -1,46 +1,48 @@
-// routes/voteRoutes.js
 const express = require("express");
 const router = express.Router();
-const { readAnchors, writeAnchors } = require("../utils/dataStore");
+const path = require("path");
+const fs = require("fs");
 
-const anchorLogPath = "anchored-cids.json";
+const anchorFilePath = path.join(__dirname, "../Data/anchored-cids.json");
 
-// POST /vote - Upvote a CID
-router.post("/vote", async (req, res) => {
+function readAnchors() {
   try {
-    const { cid } = req.body;
-    if (!cid) return res.status(400).json({ message: "CID is required." });
-    let anchors = await readAnchors(anchorLogPath);
-    const index = anchors.findIndex(a => a.cid === cid);
-    if (index === -1) {
-      return res.status(404).json({ message: `CID ${cid} not found.` });
-    }
-    anchors[index].votes = (anchors[index].votes || 0) + 1;
-    await writeAnchors(anchorLogPath, anchors);
-    res.status(200).json({ message: "Vote recorded.", total_votes: anchors[index].votes });
-  } catch (err) {
-    console.error("Error in POST /vote:", err);
-    res.status(500).json({ message: "Internal server error" });
+    return JSON.parse(fs.readFileSync(anchorFilePath));
+  } catch {
+    return { anchors: [] };
   }
+}
+
+function writeAnchors(data) {
+  fs.writeFileSync(anchorFilePath, JSON.stringify(data, null, 2));
+}
+
+function updateAnchorField(cid, field) {
+  const anchors = readAnchors();
+  const anchor = anchors.anchors.find((a) => a.cid === cid);
+  if (!anchor) return null;
+
+  anchor[field] = (anchor[field] || 0) + 1;
+  writeAnchors(anchors);
+  return anchor;
+}
+
+router.post("/vote", (req, res) => {
+  const { cid } = req.body;
+  const updated = updateAnchorField(cid, "votes");
+  if (!updated) {
+    return res.status(404).json({ error: "Anchor not found." });
+  }
+  res.json({ success: true, anchor: updated });
 });
 
-// POST /flag - Flag a CID
-router.post("/flag", async (req, res) => {
-  try {
-    const { cid } = req.body;
-    if (!cid) return res.status(400).json({ message: "CID is required." });
-    let anchors = await readAnchors(anchorLogPath);
-    const index = anchors.findIndex(a => a.cid === cid);
-    if (index === -1) {
-      return res.status(404).json({ message: `CID ${cid} not found.` });
-    }
-    anchors[index].flags = (anchors[index].flags || 0) + 1;
-    await writeAnchors(anchorLogPath, anchors);
-    res.status(200).json({ message: "Flag recorded.", total_flags: anchors[index].flags });
-  } catch (err) {
-    console.error("Error in POST /flag:", err);
-    res.status(500).json({ message: "Internal server error" });
+router.post("/flag", (req, res) => {
+  const { cid } = req.body;
+  const updated = updateAnchorField(cid, "flags");
+  if (!updated) {
+    return res.status(404).json({ error: "Anchor not found." });
   }
+  res.json({ success: true, anchor: updated });
 });
 
 module.exports = router;

@@ -1,65 +1,57 @@
-// routes/profileRoutes.js
 const express = require("express");
 const router = express.Router();
+const fs = require("fs");
 const path = require("path");
-const { readProfiles, writeProfiles } = require("../utils/dataStore");
 
-const profileFilePath = path.join(__dirname, "../profiles.json");
+const profilesPath = path.join(__dirname, "../Data/profiles.json");
 
-// POST /profile - Submit or update a profile
-router.post("/profile", async (req, res) => {
-  try {
-    console.log("🧾 Received profile submission:", req.body);
-    const { public_key, username, bio, verification_level, kaspa_address } = req.body;
-    if (
-      !public_key ||
-      typeof public_key !== "string" ||
-      !public_key.startsWith("04") ||
-      !username ||
-      typeof username !== "string" ||
-      typeof verification_level !== "number" ||
-      verification_level < 1 ||
-      verification_level > 5
-    ) {
-      return res.status(400).json({ message: "Missing or invalid profile fields." });
-    }
-    let profiles = await readProfiles(profileFilePath);
-    const index = profiles.findIndex(p => p.public_key === public_key);
-    const profile = {
-      public_key,
-      username,
-      bio,
-      verification_level,
-      kaspa_address,
-      updated_at: new Date().toISOString()
-    };
-    if (index >= 0) {
-      profiles[index] = profile;
-    } else {
-      profiles.push(profile);
-    }
-    await writeProfiles(profileFilePath, profiles);
-    res.status(200).json({ message: "Profile saved", profile });
-  } catch (err) {
-    console.error("Error in POST /profile:", err);
-    res.status(500).json({ message: "Internal server error" });
+// Helper to load profiles
+function loadProfiles() {
+  if (!fs.existsSync(profilesPath)) return { profiles: [] };
+  return JSON.parse(fs.readFileSync(profilesPath));
+}
+
+// Helper to save profiles
+function saveProfiles(data) {
+  fs.writeFileSync(profilesPath, JSON.stringify(data, null, 2));
+}
+
+// POST /profile — Add or update a profile
+router.post("/profile", (req, res) => {
+  const { public_key, username, bio, verification_level, kaspa_address } = req.body;
+  if (!public_key || !username || !kaspa_address || !verification_level) {
+    return res.status(400).json({ error: "Missing required fields" });
   }
+
+  const data = loadProfiles();
+  let profiles = data.profiles;
+
+  const existingIndex = profiles.findIndex((p) => p.public_key === public_key);
+  const newProfile = { public_key, username, bio, verification_level, kaspa_address };
+
+  if (existingIndex >= 0) {
+    profiles[existingIndex] = { ...profiles[existingIndex], ...newProfile };
+  } else {
+    profiles.push(newProfile);
+  }
+
+  saveProfiles({ profiles });
+
+  console.log("🧾 Profile saved:", newProfile);
+  res.json({ status: "ok", profile: newProfile });
 });
 
-// GET /profile/:publicKey - Retrieve a profile
-router.get("/profile/:publicKey", async (req, res) => {
-  try {
-    const publicKey = req.params.publicKey;
-    let profiles = await readProfiles(profileFilePath);
-    const profile = profiles.find(p => p.public_key === publicKey);
-    if (!profile) {
-      return res.status(404).json({ message: `Profile for ${publicKey} not found.` });
-    }
-    res.status(200).json({ profile });
-  } catch (err) {
-    console.error("Error in GET /profile/:publicKey", err);
-    res.status(500).json({ message: "Internal server error" });
+// GET /profile/:pubkey — Fetch profile by public key
+router.get("/profile/:pubkey", (req, res) => {
+  const pubkey = req.params.pubkey;
+  const data = loadProfiles();
+  const profile = data.profiles.find((p) => p.public_key === pubkey);
+
+  if (!profile) {
+    return res.status(404).json({ error: "Profile not found" });
   }
+
+  res.json({ profile });
 });
 
 module.exports = router;

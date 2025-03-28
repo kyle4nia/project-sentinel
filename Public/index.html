@@ -1,1 +1,196 @@
-[]
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Project Sentinel</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 2rem;
+      background: #f4f4f4;
+      text-align: center;
+    }
+    form {
+      background: white;
+      display: inline-block;
+      padding: 2rem;
+      border-radius: 10px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      margin-bottom: 2rem;
+    }
+    input, select, button {
+      font-size: 1rem;
+      padding: 0.5rem;
+      width: 100%;
+      margin-top: 0.5rem;
+      margin-bottom: 1rem;
+      border-radius: 5px;
+      border: 1px solid #ccc;
+    }
+    button {
+      background-color: #333;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+    .anchor {
+      background: white;
+      padding: 1rem;
+      margin: 1rem auto;
+      border-radius: 8px;
+      border-left: 6px solid #ccc;
+      max-width: 700px;
+      text-align: left;
+    }
+    .trustworthy {
+      border-left-color: green;
+    }
+  </style>
+</head>
+<body>
+  <h1>🛰️ Project Sentinel</h1>
+
+  <h2>Submit a New Anchor</h2>
+  <form id="anchorForm">
+    <input type="text" id="cid" placeholder="CID" required />
+    <input type="text" id="note" placeholder="Note" />
+    <input type="text" id="signed_by" placeholder="Public Key" required />
+    <input type="text" id="signature" placeholder="Signature" required />
+    <button type="submit">Anchor It</button>
+  </form>
+
+  <h2>Submit or Update Your Profile</h2>
+  <form id="profileForm">
+    <input type="text" id="public_key" placeholder="Public Key" required />
+    <input type="text" id="username" placeholder="Username" required />
+    <input type="text" id="bio" placeholder="Bio" />
+    <select id="verification_level" required>
+      <option value="">Verification Level</option>
+      <option value="1">🟤 Level 1</option>
+      <option value="2">🟠 Level 2</option>
+      <option value="3">🟡 Level 3</option>
+      <option value="4">🟢 Level 4</option>
+      <option value="5">🔵 Level 5</option>
+    </select>
+    <input type="text" id="kaspa_address" placeholder="Kaspa Address (auto-generated)" readonly />
+    <button type="submit">Save Profile</button>
+  </form>
+
+  <h2>Anchored Posts</h2>
+  <button onclick="loadAnchors()">🔄 Refresh List</button>
+  <div id="anchors"></div>
+
+  <script type="module">
+    import { encodeKaspaAddress } from "./encodeKaspaAddress.mjs";
+
+    async function loadAnchors() {
+      const res = await fetch("/anchors");
+      const data = await res.json();
+      const anchors = data.anchors || [];
+
+      const container = document.getElementById("anchors");
+      container.innerHTML = "";
+
+      for (const a of anchors) {
+        const isTrustworthy = a.is_valid === true && (a.votes || 0) >= (a.flags || 0);
+
+        let profile = {};
+        if (a.signed_by && a.signed_by.length > 40) {
+          try {
+            const profileRes = await fetch(`/profile/${a.signed_by}`);
+            if (profileRes.ok) {
+              const profileData = await profileRes.json();
+              profile = profileData.profile || {};
+            }
+          } catch (err) {
+            console.warn("Profile fetch failed:", err);
+          }
+        }
+
+        const badgeMap = {
+          1: "🟤", 2: "🟠", 3: "🟡", 4: "🟢", 5: "🔵"
+        };
+        const badge = badgeMap[profile.verification_level] || "⚪";
+
+        const div = document.createElement("div");
+        div.className = "anchor" + (isTrustworthy ? " trustworthy" : "");
+        div.innerHTML = `
+          <strong>CID:</strong> ${a.cid}<br>
+          <strong>Note:</strong> ${a.note || "N/A"}<br>
+          <strong>Signed By:</strong> ${badge} ${profile.username || a.signed_by || "Anonymous"}<br>
+          <strong>Verification Level:</strong> ${profile.verification_level || "N/A"}<br>
+          <strong>Kaspa Address:</strong> ${profile.kaspa_address || "N/A"}<br>
+          <strong>Signature:</strong> ${a.signature || "N/A"}<br>
+          <strong>🧾 Validity:</strong> ${a.is_valid ? "✅ Valid" : "❌ Invalid"}<br>
+          <strong>Votes:</strong> ${a.votes || 0} |
+          <strong>Flags:</strong> ${a.flags || 0}<br>
+          <strong>Time:</strong> ${new Date(a.timestamp).toLocaleString()}<br>
+          <button onclick="vote('${a.cid}')">👍 Vote</button>
+          <button onclick="flag('${a.cid}')">🚩 Flag</button>
+        `;
+        container.appendChild(div);
+      }
+    }
+
+    document.getElementById("anchorForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const cid = document.getElementById("cid").value;
+      const note = document.getElementById("note").value;
+      const signed_by = document.getElementById("signed_by").value;
+      const signature = document.getElementById("signature").value;
+
+      const res = await fetch("/anchor", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cid, note, signed_by, signature }),
+      });
+
+      const result = await res.json();
+      alert("Anchor created: " + JSON.stringify(result, null, 2));
+      loadAnchors();
+      document.getElementById("anchorForm").reset();
+    });
+
+    document.getElementById("profileForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const public_key = document.getElementById("public_key").value.trim();
+      const username = document.getElementById("username").value.trim();
+      const bio = document.getElementById("bio").value.trim();
+      const verification_level = parseInt(document.getElementById("verification_level").value);
+      const kaspa_address = await encodeKaspaAddress(public_key);
+      document.getElementById("kaspa_address").value = kaspa_address;
+
+      const res = await fetch("/profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          public_key, username, bio, verification_level, kaspa_address
+        }),
+      });
+
+      const result = await res.json();
+      alert("✅ Profile saved: " + JSON.stringify(result, null, 2));
+    });
+
+    async function vote(cid) {
+      await fetch("/vote", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cid }),
+      });
+      loadAnchors();
+    }
+
+    async function flag(cid) {
+      await fetch("/flag", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cid }),
+      });
+      loadAnchors();
+    }
+
+    loadAnchors();
+  </script>
+</body>
+</html>
